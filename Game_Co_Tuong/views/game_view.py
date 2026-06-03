@@ -59,7 +59,7 @@ class GameView:
         # Subtle board-lines overlay surface so pieces don't hide lines
         self._grid_overlay: pygame.Surface | None = None
 
-   def _load_piece_images(self) -> None:
+    def _load_piece_images(self) -> None:
         # assets/images/pieces/red
         # assets/images/pieces/black
         pieces_dir = resource_path("assets", "images", "pieces")
@@ -70,84 +70,56 @@ class GameView:
         if target_px <= 0:
             return
 
-    def candidates(color: Color, piece_type: PieceType) -> list[Path]:
+        def candidates(color: Color, piece_type: PieceType) -> list[Path]:
+            sub = "red" if color == Color.RED else "black"
+            prefix = "r_" if color == Color.RED else "b_"
+            pt = piece_type.value.lower()
+            piece_folder = pieces_dir / sub
 
-        sub = "red" if color == Color.RED else "black"
+            return [
+                piece_folder / f"{prefix}{pt}.png",
+                piece_folder / f"{prefix}{pt}.webp",
+                piece_folder / f"{prefix}{pt}.jpg",
+                piece_folder / f"{prefix}{pt}.jpeg",
+            ]
 
-        pt = piece_type.value.lower()
+        for color in (Color.RED, Color.BLACK):
+            for piece_type in (
+                PieceType.GENERAL,
+                PieceType.ADVISOR,
+                PieceType.ELEPHANT,
+                PieceType.HORSE,
+                PieceType.CHARIOT,
+                PieceType.CANNON,
+                PieceType.SOLDIER,
+            ):
+                surf = None
 
-        piece_folder = pieces_dir / sub
+                for path in candidates(color, piece_type):
+                    try:
+                        if not path.exists():
+                            continue
 
-        return [
-            piece_folder / f"{pt}.png",
-            piece_folder / f"{pt}.webp",
-            piece_folder / f"{pt}.jpg",
-            piece_folder / f"{pt}.jpeg",
-        ]
+                        loaded = pygame.image.load(str(path)).convert_alpha()
+                        w, h = loaded.get_size()
 
-    for color in (Color.RED, Color.BLACK):
+                        if w <= 0 or h <= 0:
+                            continue
 
-        for piece_type in (
-            PieceType.GENERAL,
-            PieceType.ADVISOR,
-            PieceType.ELEPHANT,
-            PieceType.HORSE,
-            PieceType.CHARIOT,
-            PieceType.CANNON,
-            PieceType.SOLDIER,
-        ):
+                        scale = min(target_px / w, target_px / h)
+                        new_size = (max(1, int(w * scale)), max(1, int(h * scale)))
 
-            surf = None
+                        surf = pygame.transform.smoothscale(loaded, new_size)
+                        print(f"[OK] Loaded piece: {path}")
+                        break
+                    except Exception as e:
+                        print(f"[ERROR] Failed loading {path}")
+                        print(e)
 
-            for path in candidates(color, piece_type):
-
-                try:
-
-                    if not path.exists():
-                        continue
-
-                    loaded = pygame.image.load(
-                        str(path)
-                    ).convert_alpha()
-
-                    w, h = loaded.get_size()
-
-                    if w <= 0 or h <= 0:
-                        continue
-
-                    scale = min(
-                        target_px / w,
-                        target_px / h
-                    )
-
-                    new_size = (
-                        max(1, int(w * scale)),
-                        max(1, int(h * scale))
-                    )
-
-                    surf = pygame.transform.smoothscale(
-                        loaded,
-                        new_size
-                    )
-
-                    print(f"[OK] Loaded piece: {path}")
-
-                    break
-
-                except Exception as e:
-
-                    print(f"[ERROR] Failed loading {path}")
-                    print(e)
-
-            if surf is not None:
-
-                self.piece_images[(color, piece_type)] = surf
-
-            else:
-
-                print(
-                    f"[MISSING] {color.value} {piece_type.value}"
-                )
+                if surf is not None:
+                    self.piece_images[(color, piece_type)] = surf
+                else:
+                    print(f"[MISSING] {color.value} {piece_type.value}")
     def board_to_screen(self, pos: Position) -> tuple[int, int]:
         x = self.cfg.margin + pos.x * self.cfg.cell
         y = self.cfg.margin + pos.y * self.cfg.cell
